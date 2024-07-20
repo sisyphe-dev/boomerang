@@ -1,0 +1,19 @@
+{
+  "dfx": "0.16.1",
+  "canisters": {
+    "sns-wtn-integration": {
+      "candid": "boomerang.did",
+      "package": "boomerang",
+      "shrink": false,
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

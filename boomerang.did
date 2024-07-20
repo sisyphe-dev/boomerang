@@ -1,0 +1,6 @@
+type AccountIdentifier = blob;
+
+service: () -> {
+    get_account_id: (principal) -> (AccountIdentifier);
+    notify_transfer: () -> (ConversionResult); 
+}

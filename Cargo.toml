@@ -1,0 +1,18 @@
+[package]
+name = "boomerang"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "boomerang"
+path = "src/main.rs"
+
+
+
+[dependencies]
+candid = "0.10"
+ic-cdk = "0.13"
+serde = "1.0.204"
