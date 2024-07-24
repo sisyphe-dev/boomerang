@@ -1,3 +1,5 @@
+# Boomerang Canister
+
 The Boomerang canister has been thought to allow any form of decentralized governance to use the WaterNeuron protocol without relying on a centralized party to actually do the operation. We still recommand single individuals to use the DApp as it remains the simplest way to use the protocol. 
 
 For our usecase, we will be taking the example of an SNS DAO which is the prevalent type of organisation within the Internet Computer Community. 
