@@ -88,7 +88,7 @@ async fn notify_icp_deposit(
 
     match client.approve(approve_args).await.unwrap() {
         Ok(block_index) => {
-            log! {INFO, "Approval occured at block index: {}", block_index};
+            log! {INFO, "Approved for {client_id} occured at block index: {}", block_index};
         }
         Err(error) => {
             return Err(BoomerangConversionError::ApproveError(error));
