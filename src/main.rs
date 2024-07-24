@@ -1,7 +1,8 @@
 use boomerang::log::INFO;
 use boomerang::{
-    BoomerangConversionError, BoomerangConversionSuccess, ConversionError, DepositSuccess, ConversionArg,
-    Icrc1TransferArg, ICP_LEDGER_ID, NICP_LEDGER_ID, WATER_NEURON_ID, WTN_LEDGER_ID,
+    BoomerangConversionError, BoomerangConversionSuccess, ConversionArg, ConversionError,
+    DepositSuccess, Icrc1TransferArg, ICP_LEDGER_ID, NICP_LEDGER_ID, WATER_NEURON_ID,
+    WTN_LEDGER_ID,
 };
 use candid::{Nat, Principal};
 use ic_base_types::PrincipalId;
@@ -10,22 +11,46 @@ use ic_cdk::{query, update};
 use icp_ledger::{AccountIdentifier, Subaccount};
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
-use icrc_ledger_types::icrc1::transfer::TransferArg;
-use icrc_ledger_types::icrc1::transfer::TransferError;
+use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
 use icrc_ledger_types::icrc2::approve::ApproveArgs;
 
-fn main() {
-    
-}
+fn main() {}
 
 const E8S: u64 = 100_000_000;
+const TRANSFER_FEE: u64 = 10_000;
+
+#[cfg(target = "wasm32-unknown-unkown")]
+fn self_canister_id() -> Principal {
+    ic_cdk::id()
+}
+
+#[cfg(not(target = "wasm32-unknown-unkown"))]
+fn self_canister_id() -> Principal {
+    Principal::anonymous()
+}
 
 #[query]
 fn get_account_id(principal: Principal) -> AccountIdentifier {
+    let boomerang_id = self_canister_id();
+
     let subaccount = Subaccount::from(&PrincipalId::from(principal));
-    let boomerang_id = ic_cdk::id();
 
     AccountIdentifier::new(PrincipalId::from(boomerang_id), Some(subaccount))
+}
+
+#[test]
+fn should_compute_account_id() {
+    let p = Principal::anonymous();
+    dbg!(p.clone());
+
+    let id = get_account_id(p);
+    dbg!(id);
+
+    let subaccount = Subaccount::from(&PrincipalId::from(p));
+
+    assert_eq!(p.as_slice(), subaccount.0);
+
+    panic!();
 }
 
 #[update]
@@ -47,14 +72,19 @@ async fn notify_icp_transfer(
     };
 
     let balance_e8s = match client.balance_of(boomerang_account).await {
-        Ok(balance) => {
-            log!(INFO, "Subaccount Balance: {}", balance);
-            balance
-        },
-        Err(_) => {
-            return Err(BoomerangConversionError::MissingIcpBalance);
+        Ok(balance) => balance,
+        Err((code, msg)) => {
+            return Err(BoomerangConversionError::BalanceOfError(format!(
+                "code: {code} - message: {msg}"
+            )));
         }
     };
+
+    log!(
+        INFO,
+        "Fetched balance for {client_id}: {} ICP",
+        balance_e8s.clone() / Nat::from(E8S)
+    );
 
     let spender = Account {
         owner: WATER_NEURON_ID,
@@ -81,9 +111,13 @@ async fn notify_icp_transfer(
         }
     };
 
+    let amount: u64 = balance_e8s.clone().0.try_into().unwrap();
+
+    let transfer_amount_e8s = amount.checked_sub(2 * TRANSFER_FEE).expect("underflow");
+
     let conversion_arg = ConversionArg {
-        amount_e8s: balance_e8s.0.to_u64_digits()[0]-20_000,
-        maybe_subaccount: Some(subaccount.0), 
+        amount_e8s: transfer_amount_e8s,
+        maybe_subaccount: Some(subaccount.0),
     };
 
     let conversion_result: (Result<DepositSuccess, ConversionError>,) =
@@ -122,7 +156,7 @@ async fn notify_icp_transfer(
         }
     };
 
-    log!(INFO, "Nicp balance: {}", nicp_balance_e8s);
+    log!(INFO, "nICP balance: {}", nicp_balance_e8s);
 
     let nicp_fee_e8s = 10_000;
 
@@ -137,7 +171,7 @@ async fn notify_icp_transfer(
         Ok(block_index) => {
             log!(
                 INFO,
-                "Transfered nICP at block index: {}",
+                "Transfered nICP for {client_id} at block index: {}",
                 block_index
             );
 
@@ -147,53 +181,6 @@ async fn notify_icp_transfer(
             return Err(BoomerangConversionError::MissingNicpBalance);
         }
     };
-
-    let wtn_client = ICRC1Client {
-        runtime: CdkRuntime,
-        ledger_canister_id: WTN_LEDGER_ID,
-    };
-
-    let wtn_balance_e8s = match wtn_client.balance_of(boomerang_account).await {
-        Ok(balance) => balance,
-        Err(_) => {
-            return Ok(BoomerangConversionSuccess {
-                nicp_block_index,
-                wtn_block_index: None,
-            });
-        }
-    };
-
-    if wtn_balance_e8s == Nat::from(0u64) {
-        return Ok(BoomerangConversionSuccess {
-            nicp_block_index,
-            wtn_block_index: None,
-        });
-    }
-
-    let wtn_fee_e8s = 10_000;
-
-    match handle_icrc1_transfer(Icrc1TransferArg {
-        fee_e8s: wtn_fee_e8s,
-        amount_e8s: wtn_balance_e8s.clone(),
-        ledger_id: WTN_LEDGER_ID,
-        to: client_id,
-    })
-    .await
-    {
-        Ok(block_index) => {
-            log!(
-                INFO,
-                "Transfered WTN at block index: {}",
-                block_index
-            );
-
-            Ok(BoomerangConversionSuccess {
-                nicp_block_index,
-                wtn_block_index: Some(block_index),
-            })
-        }
-        Err(error) => Err(BoomerangConversionError::TransferError(error)),
-    }
 }
 
 async fn handle_icrc1_transfer(arg: Icrc1TransferArg) -> Result<Nat, TransferError> {
@@ -222,7 +209,6 @@ async fn handle_icrc1_transfer(arg: Icrc1TransferArg) -> Result<Nat, TransferErr
 
     log!(INFO, "{:?}", res);
     res
-
 }
 
 /// Checks the real candid interface against the one declared in the did file
@@ -277,3 +263,46 @@ fn check_candid_interface_compatibility() {
         candid_parser::utils::CandidSource::File(old_interface.as_path()),
     );
 }
+
+/*
+let wtn_client = ICRC1Client {
+    runtime: CdkRuntime,
+    ledger_canister_id: WTN_LEDGER_ID,
+};
+
+let wtn_balance_e8s = match wtn_client.balance_of(boomerang_account).await {
+    Ok(balance) => balance,
+    Err(_) => {
+        return Ok(BoomerangConversionSuccess {
+            nicp_block_index,
+            wtn_block_index: None,
+        });
+    }
+};
+
+if wtn_balance_e8s == 0_u64 {
+    return Ok(BoomerangConversionSuccess {
+        nicp_block_index,
+        wtn_block_index: None,
+    });
+}
+
+match handle_icrc1_transfer(Icrc1TransferArg {
+    fee_e8s: TRANSFER_FEE,
+    amount_e8s: wtn_balance_e8s.clone(),
+    ledger_id: WTN_LEDGER_ID,
+    to: client_id,
+})
+.await
+{
+    Ok(block_index) => {
+        log!(INFO, "Transfered WTN at block index: {}", block_index);
+
+        Ok(BoomerangConversionSuccess {
+            nicp_block_index,
+            wtn_block_index: Some(block_index),
+        })
+    }
+    Err(error) => Err(BoomerangConversionError::TransferError(error)),
+}
+    */

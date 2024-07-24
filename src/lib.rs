@@ -55,7 +55,7 @@ pub struct DepositSuccess {
 #[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum BoomerangConversionError {
     ApproveError(ApproveError),
-    MissingIcpBalance,
+    BalanceOfError(String),
     MissingNicpBalance,
     ConversionError(ConversionError),
     TransferError(TransferError),
