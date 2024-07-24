@@ -56,7 +56,6 @@ pub struct DepositSuccess {
 pub enum BoomerangConversionError {
     ApproveError(ApproveError),
     BalanceOfError(String),
-    MissingNicpBalance,
     ConversionError(ConversionError),
     TransferError(TransferError),
 }
@@ -64,5 +63,5 @@ pub enum BoomerangConversionError {
 #[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct BoomerangConversionSuccess {
     pub nicp_block_index: Nat,
-    pub wtn_block_index: Option<Nat>,
+    // pub wtn_block_index: Option<Nat>,
 }

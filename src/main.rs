@@ -2,7 +2,6 @@ use boomerang::log::INFO;
 use boomerang::{
     BoomerangConversionError, BoomerangConversionSuccess, ConversionArg, ConversionError,
     DepositSuccess, Icrc1TransferArg, ICP_LEDGER_ID, NICP_LEDGER_ID, WATER_NEURON_ID,
-    WTN_LEDGER_ID,
 };
 use candid::{Nat, Principal};
 use ic_base_types::PrincipalId;
@@ -38,26 +37,11 @@ fn get_account_id(principal: Principal) -> AccountIdentifier {
     AccountIdentifier::new(PrincipalId::from(boomerang_id), Some(subaccount))
 }
 
-#[test]
-fn should_compute_account_id() {
-    let p = Principal::anonymous();
-    dbg!(p.clone());
-
-    let id = get_account_id(p);
-    dbg!(id);
-
-    let subaccount = Subaccount::from(&PrincipalId::from(p));
-
-    assert_eq!(p.as_slice(), subaccount.0);
-
-    panic!();
-}
-
 #[update]
-async fn notify_icp_transfer(
+async fn notify_icp_deposit(
     client_id: Principal,
 ) -> Result<BoomerangConversionSuccess, BoomerangConversionError> {
-    let boomerang_id = ic_cdk::id();
+    let boomerang_id = self_canister_id();
 
     let subaccount = Subaccount::from(&PrincipalId::from(client_id));
 
@@ -151,17 +135,21 @@ async fn notify_icp_transfer(
 
     let nicp_balance_e8s = match nicp_client.balance_of(boomerang_account).await {
         Ok(balance) => balance,
-        Err(_) => {
-            return Err(BoomerangConversionError::MissingNicpBalance);
+        Err((code, msg)) => {
+            return Err(BoomerangConversionError::BalanceOfError(format!(
+                "code: {code} - msg: {msg}"
+            )));
         }
     };
 
-    log!(INFO, "nICP balance: {}", nicp_balance_e8s);
+    log!(
+        INFO,
+        "Fetched balance for {client_id}: {} nICP",
+        nicp_balance_e8s.clone() / Nat::from(E8S)
+    );
 
-    let nicp_fee_e8s = 10_000;
-
-    let nicp_block_index = match handle_icrc1_transfer(Icrc1TransferArg {
-        fee_e8s: nicp_fee_e8s,
+    match handle_icrc1_transfer(Icrc1TransferArg {
+        fee_e8s: TRANSFER_FEE,
         amount_e8s: nicp_balance_e8s.clone(),
         ledger_id: NICP_LEDGER_ID,
         to: client_id,
@@ -174,13 +162,12 @@ async fn notify_icp_transfer(
                 "Transfered nICP for {client_id} at block index: {}",
                 block_index
             );
-
-            block_index
+            Ok(BoomerangConversionSuccess {
+                nicp_block_index: block_index,
+            })
         }
-        Err(_) => {
-            return Err(BoomerangConversionError::MissingNicpBalance);
-        }
-    };
+        Err(e) => Err(BoomerangConversionError::TransferError(e)),
+    }
 }
 
 async fn handle_icrc1_transfer(arg: Icrc1TransferArg) -> Result<Nat, TransferError> {
