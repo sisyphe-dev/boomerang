@@ -1,6 +1,59 @@
-type AccountIdentifier = blob;
-
-service: () -> {
-    get_account_id: (principal) -> (AccountIdentifier);
-    notify_transfer: () -> (ConversionResult); 
+type ApproveError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  AllowanceChanged : record { current_allowance : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  Expired : record { ledger_time : nat64 };
+  InsufficientFunds : record { balance : nat };
+};
+type BoomerangConversionError = variant {
+  TransferError : TransferError;
+  ConversionError : ConversionError;
+  ApproveError : ApproveError;
+  MissingIcpBalance;
+  MissingNicpBalance;
+};
+type BoomerangConversionSuccess = record {
+  nicp_block_index : nat;
+  wtn_block_index : opt nat;
+};
+type ConversionError = variant {
+  GenericError : record { code : int32; message : text };
+  TransferError : TransferError;
+  AmountTooLow : record { minimum_amount_e8s : nat64 };
+  TransferFromError : TransferFromError;
+  GuardError : record { guard_error : GuardError };
+};
+type GuardError = variant { AlreadyProcessing; TooManyConcurrentRequests };
+type Result = variant {
+  Ok : BoomerangConversionSuccess;
+  Err : BoomerangConversionError;
+};
+type TransferError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+type TransferFromError = variant {
+  GenericError : record { message : text; error_code : nat };
+  TemporarilyUnavailable;
+  InsufficientAllowance : record { allowance : nat };
+  BadBurn : record { min_burn_amount : nat };
+  Duplicate : record { duplicate_of : nat };
+  BadFee : record { expected_fee : nat };
+  CreatedInFuture : record { ledger_time : nat64 };
+  TooOld;
+  InsufficientFunds : record { balance : nat };
+};
+service : {
+  get_account_id : (principal) -> (text) query;
+  notify_icp_transfer : (principal) -> (Result);
 }
