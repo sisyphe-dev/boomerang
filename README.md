@@ -1,56 +1,41 @@
 # Boomerang Canister
 
-The Boomerang canister has been thought to allow any form of decentralized governance to use the WaterNeuron protocol without relying on a centralized party to actually do the operation. We still recommand single individuals to use the DApp as it remains the simplest way to use the protocol. 
+The Boomerang canister is a helper canister that allows SNS DAOs to stake/unstake ICP easily.
 
-For our usecase, we will be taking the example of an SNS DAO which is the prevalent type of organisation within the Internet Computer Community. 
+We still recommand single individuals to use the DApp as it remains the simplest way to use the protocol. 
 
-Converting ICP from the treasury funds of the SNS is pretty straightforward. 
+## Flow: ICP to nICP
 
+Converting ICP from the treasury funds of the SNS is pretty straightforward.
 
 ```
-┌───┐                  ┌─────────┐                        ┌──────────┐┌───────────┐┌───────────┐┌──────────┐
-│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger││WTN ledger│
-└─┬─┘                  └────┬────┘                        └────┬─────┘└─────┬─────┘└─────┬─────┘└────┬─────┘
-  │                         │                                  │            │            │           │      
-  │get_account_id(principal)│                                  │            │            │           │      
-  │────────────────────────>│                                  │            │            │           │      
-  │                         │                                  │            │            │           │      
-  │        AccountID        │                                  │            │            │           │      
-  │<────────────────────────│                                  │            │            │           │      
-  │                         │                                  │            │            │           │      
-  │          (*) TransferSnsTreasuryFunds(AccountID)           │            │            │           │      
-  │───────────────────────────────────────────────────────────>│            │            │           │      `
-  │                         │                                  │            │            │           │      
-  │                         Received!                          │            │            │           │      
-  │<───────────────────────────────────────────────────────────│            │            │           │      
-  │                         │                                  │            │            │           │      
-  │    notify_transfer()    │                                  │            │            │           │      
-  │────────────────────────>│                                  │            │            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │   icrc1_balance_of(principal)    │            │            │           │      
-  │                         │─────────────────────────────────>│            │            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │           Some(amount)           │            │            │           │      
-  │                         │<─────────────────────────────────│            │            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │icrc2_approve(WaterNeuron, amount)│            │            │           │      
-  │                         │─────────────────────────────────>│            │            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │                 icp_to_nicp()    │            │            │           │      
-  │                         │──────────────────────────────────────────────>│            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │                  Converted!      │            │            │           │      
-  │                         │<──────────────────────────────────────────────│            │           │      
-  │                         │                                  │            │            │           │      
-  │                         │            icrc1_transfer(to SNS, nicp_amount)│            │           │      
-  │                         │───────────────────────────────────────────────────────────>│           │      
-  │                         │                                  │            │            │           │      
-  │                         │                    icrc1_transfer(to SNS, airdrop)         │           │      
-  │                         │───────────────────────────────────────────────────────────────────────>│      
-┌─┴─┐                  ┌────┴────┐                        ┌────┴─────┐┌─────┴─────┐┌─────┴─────┐┌────┴─────┐
-│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger││WTN ledger│
-└───┘                  └─────────┘                        └──────────┘└───────────┘└───────────┘└──────────┘
+┌───┐                  ┌─────────┐                        ┌──────────┐┌───────────┐┌───────────┐
+│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger│
+└─┬─┘                  └────┬────┘                        └────┬─────┘└─────┬─────┘└─────┬─────┘
+  │                         │                                  │            │            │      
+  │get_account_id(principal)│                                  │            │            │      
+  │                         │                                  │            │            │            
+  │────────────────────────>│                                  │            │            │                  
+  │          (*) TransferSnsTreasuryFunds(AccountID)           │            │            │            
+  │───────────────────────────────────────────────────────────>│            │            │                 
+  │                         │                                  │            │            │            
+  │    notify_transfer()    │                                  │            │            │            
+  │────────────────────────>│                                  │            │            │            
+  │                         │                                  │            │            │            
+  │                         │icrc2_approve(WaterNeuron, amount)│            │            │            
+  │                         │─────────────────────────────────>│            │            │            
+  │                         │                                  │            │            │            
+  │                         │                 icp_to_nicp()    │            │            │            
+  │                         │──────────────────────────────────────────────>│            │            
+  │                         │                                  │            │            │            
+  │                         │            icrc1_transfer(to SNS, nicp_amount)│            │            
+  │                         │───────────────────────────────────────────────────────────>│            
+┌─┴─┐                  ┌────┴────┐                        ┌────┴─────┐┌─────┴─────┐┌─────┴─────┐
+│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger│
+└───┘                  └─────────┘                        └──────────┘└───────────┘└───────────┘
 ```
+
+## Flow: nICP to ICP
 
 ```
 ┌───┐                                                                                                        ┌───┐
