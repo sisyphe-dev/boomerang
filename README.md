@@ -19,7 +19,7 @@ Converting ICP from the treasury funds of the SNS is pretty straightforward.
   │          (*) TransferSnsTreasuryFunds(AccountID)           │            │            │            
   │───────────────────────────────────────────────────────────>│            │            │                 
   │                         │                                  │            │            │            
-  │    notify_transfer()    │                                  │            │            │            
+  │  notify_icp_transfer()  │                                  │            │            │            
   │────────────────────────>│                                  │            │            │            
   │                         │                                  │            │            │            
   │                         │icrc2_approve(WaterNeuron, amount)│            │            │            
@@ -37,6 +37,8 @@ Converting ICP from the treasury funds of the SNS is pretty straightforward.
 
 ## Flow: nICP to ICP
 
+Step 1: Register a generic function to transfer nICP.
+
 ```
 ┌───┐                                                                                                        ┌───┐
 │SNS│                                                                                                        │DAO│
@@ -48,6 +50,7 @@ Converting ICP from the treasury funds of the SNS is pretty straightforward.
 │SNS│                                                                                                        │DAO│
 └───┘                                                                                                        └───┘
 
+Step 2: Execute the previously registered function.
 
 ┌───┐                                 ┌───────────┐                       ┌─────────┐  ┌───────────┐┌──────────┐
 │SNS│                                 │nICP ledger│                       │Boomerang│  │WaterNeuron││ICP ledger│
@@ -56,26 +59,14 @@ Converting ICP from the treasury funds of the SNS is pretty straightforward.
   │(*) ExecuteGenericNervousSystemFunction()│                                  │             │           │      
   │────────────────────────────────────────>│                                  │             │           │      
   │                                         │                                  │             │           │      
-  │                Received!                │                                  │             │           │      
-  │<────────────────────────────────────────│                                  │             │           │      
-  │                                         │                                  │             │           │      
   │                           notify_nicp_transfer()                           │             │           │      
   │───────────────────────────────────────────────────────────────────────────>│             │           │      
-  │                                         │                                  │             │           │      
-  │                                         │   icrc1_balance_of(Boomerang)    │             │           │      
-  │                                         │<─────────────────────────────────│             │           │      
-  │                                         │                                  │             │           │      
-  │                                         │           Some(amount)           │             │           │      
-  │                                         │─────────────────────────────────>│             │           │      
   │                                         │                                  │             │           │      
   │                                         │icrc2_approve(WaterNeuron, amount)│             │           │      
   │                                         │<─────────────────────────────────│             │           │      
   │                                         │                                  │             │           │      
   │                                         │                                  │nicp_to_icp()│           │      
   │                                         │                                  │────────────>│           │      
-  │                                         │                                  │             │           │      
-  │                                         │                                  │ Converted!  │           │      
-  │                                         │                                  │<────────────│           │      
   │                                         │                                  │             │           │      
   │                                         │                                  │transfer(to SNS, amount) │      
   │                                         │                                  │────────────────────────>│      
