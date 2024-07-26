@@ -9,16 +9,11 @@ type ApproveError = variant {
   Expired : record { ledger_time : nat64 };
   InsufficientFunds : record { balance : nat };
 };
-type BoomerangConversionError = variant {
+type BoomerangError = variant {
   TransferError : TransferError;
   ConversionError : ConversionError;
   ApproveError : ApproveError;
-  MissingIcpBalance;
-  MissingNicpBalance;
-};
-type BoomerangConversionSuccess = record {
-  nicp_block_index : nat;
-  wtn_block_index : opt nat;
+  BalanceOfError : text;
 };
 type ConversionError = variant {
   GenericError : record { code : int32; message : text };
@@ -27,11 +22,14 @@ type ConversionError = variant {
   TransferFromError : TransferFromError;
   GuardError : record { guard_error : GuardError };
 };
-type GuardError = variant { AlreadyProcessing; TooManyConcurrentRequests };
-type Result = variant {
-  Ok : BoomerangConversionSuccess;
-  Err : BoomerangConversionError;
+type DepositSuccess = record {
+  nicp_amount : opt nat64;
+  block_index : nat;
+  transfer_id : nat64;
 };
+type GuardError = variant { AlreadyProcessing; TooManyConcurrentRequests };
+type Result = variant { Ok : DepositSuccess; Err : BoomerangError };
+type Result_1 = variant { Ok : nat; Err : BoomerangError };
 type TransferError = variant {
   GenericError : record { message : text; error_code : nat };
   TemporarilyUnavailable;
@@ -55,5 +53,6 @@ type TransferFromError = variant {
 };
 service : {
   get_account_id : (principal) -> (text) query;
-  notify_icp_transfer : (principal) -> (Result);
+  notify_icp_deposit : (principal) -> (Result);
+  retrieve_nicp : (principal) -> (Result_1);
 }

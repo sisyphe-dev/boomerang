@@ -4,7 +4,9 @@ use icrc_ledger_types::icrc2::approve::ApproveError;
 use icrc_ledger_types::icrc2::transfer_from::TransferFromError;
 use serde::Serialize;
 
+pub mod icp_to_nicp;
 pub mod log;
+pub mod nicp_to_icp;
 
 // "ryjl3-tyaaa-aaaaa-aaaba-cai"
 pub const ICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 2, 1, 1]);
@@ -17,6 +19,19 @@ pub const WTN_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 0, 0
 
 // "n76cn-tyaaa-aaaam-acc5a-cai"
 pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 1, 128, 16, 186, 1, 1]);
+
+pub const E8S: u64 = 100_000_000;
+pub const TRANSFER_FEE: u64 = 10_000;
+
+#[cfg(target = "wasm32-unknown-unkown")]
+pub fn self_canister_id() -> Principal {
+    ic_cdk::id()
+}
+
+#[cfg(not(target = "wasm32-unknown-unkown"))]
+pub fn self_canister_id() -> Principal {
+    Principal::anonymous()
+}
 
 pub struct Icrc1TransferArg {
     pub amount_e8s: Nat,
@@ -50,18 +65,13 @@ pub enum ConversionError {
 pub struct DepositSuccess {
     pub block_index: Nat,
     pub transfer_id: u64,
+    pub nicp_amount: Option<u64>,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub enum BoomerangConversionError {
+pub enum BoomerangError {
     ApproveError(ApproveError),
     BalanceOfError(String),
     ConversionError(ConversionError),
     TransferError(TransferError),
-}
-
-#[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
-pub struct BoomerangConversionSuccess {
-    pub nicp_block_index: Nat,
-    // pub wtn_block_index: Option<Nat>,
 }
