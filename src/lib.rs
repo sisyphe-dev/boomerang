@@ -17,11 +17,31 @@ pub const NICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48,
 // "jcmow-hyaaa-aaaaq-aadlq-cai"
 pub const WTN_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 0, 0, 215, 1, 1]);
 
-// "n76cn-tyaaa-aaaam-acc5a-cai"
-pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 1, 128, 16, 186, 1, 1]);
+// "tsbvt-pyaaa-aaaar-qafva-cai"
+pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48, 1, 106, 1, 1]);
 
 pub const E8S: u64 = 100_000_000;
 pub const TRANSFER_FEE: u64 = 10_000;
+
+#[test]
+fn check_canister_ids() {
+    assert_eq!(
+        Principal::from_text("ryjl3-tyaaa-aaaaa-aaaba-cai").unwrap(),
+        ICP_LEDGER_ID
+    );
+    assert_eq!(
+        Principal::from_text("buwm7-7yaaa-aaaar-qagva-cai").unwrap(),
+        NICP_LEDGER_ID
+    );
+    assert_eq!(
+        Principal::from_text("jcmow-hyaaa-aaaaq-aadlq-cai").unwrap(),
+        WTN_LEDGER_ID
+    );
+    assert_eq!(
+        Principal::from_text("tsbvt-pyaaa-aaaar-qafva-cai").unwrap(),
+        WATER_NEURON_ID
+    );
+}
 
 #[cfg(target = "wasm32-unknown-unkown")]
 pub fn self_canister_id() -> Principal {
