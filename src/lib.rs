@@ -1,4 +1,7 @@
 use candid::{CandidType, Deserialize, Nat, Principal};
+use ic_base_types::PrincipalId;
+use icp_ledger::Subaccount;
+use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferError;
 use icrc_ledger_types::icrc2::approve::ApproveError;
 use icrc_ledger_types::icrc2::transfer_from::TransferFromError;
@@ -22,6 +25,15 @@ pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48
 
 pub const E8S: u64 = 100_000_000;
 pub const TRANSFER_FEE: u64 = 10_000;
+
+pub fn derive_account(target: Principal) -> Account {
+    let subaccount = Subaccount::from(&PrincipalId::from(target));
+
+    Account {
+        owner: self_canister_id(),
+        subaccount: Some(subaccount.0),
+    }
+}
 
 #[test]
 fn check_canister_ids() {
@@ -89,9 +101,16 @@ pub struct DepositSuccess {
 }
 
 #[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub struct WithdrawalSuccess {
+    block_index: Nat,
+    withdrawal_id: u64,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum BoomerangError {
     ApproveError(ApproveError),
     BalanceOfError(String),
     ConversionError(ConversionError),
     TransferError(TransferError),
+    IcpNotAvailable,
 }

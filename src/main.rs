@@ -1,13 +1,16 @@
-use boomerang::{self_canister_id, BoomerangError, DepositSuccess};
+use boomerang::{
+    derive_account, self_canister_id, BoomerangError, DepositSuccess, WithdrawalSuccess,
+};
 use candid::{Nat, Principal};
 use ic_base_types::PrincipalId;
 use ic_cdk::{query, update};
 use icp_ledger::{AccountIdentifier, Subaccount};
+use icrc_ledger_types::icrc1::account::Account;
 
 fn main() {}
 
 #[query]
-fn get_account_id(principal: Principal) -> AccountIdentifier {
+fn get_staking_account_id(principal: Principal) -> AccountIdentifier {
     let boomerang_id = self_canister_id();
     let subaccount = Subaccount::from(&PrincipalId::from(principal));
     AccountIdentifier::new(PrincipalId::from(boomerang_id), Some(subaccount))
@@ -21,6 +24,21 @@ async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
 #[update]
 async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, BoomerangError> {
     boomerang::icp_to_nicp::notify_icp_deposit(client_id).await
+}
+
+#[query]
+fn get_unstaking_account(target: Principal) -> Account {
+    derive_account(target)
+}
+
+#[update]
+async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess, BoomerangError> {
+    boomerang::nicp_to_icp::notify_nicp_deposit(target).await
+}
+
+#[update]
+async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> {
+    boomerang::nicp_to_icp::try_retrieve_icp(target).await
 }
 
 /// Checks the real candid interface against the one declared in the did file
@@ -75,46 +93,3 @@ fn check_candid_interface_compatibility() {
         candid_parser::utils::CandidSource::File(old_interface.as_path()),
     );
 }
-
-/*
-let wtn_client = ICRC1Client {
-    runtime: CdkRuntime,
-    ledger_canister_id: WTN_LEDGER_ID,
-};
-
-let wtn_balance_e8s = match wtn_client.balance_of(boomerang_account).await {
-    Ok(balance) => balance,
-    Err(_) => {
-        return Ok(BoomerangConversionSuccess {
-            nicp_block_index,
-            wtn_block_index: None,
-        });
-    }
-};
-
-if wtn_balance_e8s == 0_u64 {
-    return Ok(BoomerangConversionSuccess {
-        nicp_block_index,
-        wtn_block_index: None,
-    });
-}
-
-match handle_icrc1_transfer(Icrc1TransferArg {
-    fee_e8s: TRANSFER_FEE,
-    amount_e8s: wtn_balance_e8s.clone(),
-    ledger_id: WTN_LEDGER_ID,
-    to: client_id,
-})
-.await
-{
-    Ok(block_index) => {
-        log!(INFO, "Transfered WTN at block index: {}", block_index);
-
-        Ok(BoomerangConversionSuccess {
-            nicp_block_index,
-            wtn_block_index: Some(block_index),
-        })
-    }
-    Err(error) => Err(BoomerangError::TransferError(error)),
-}
-    */

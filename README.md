@@ -9,30 +9,38 @@ We still recommand single individuals to use the DApp as it remains the simplest
 Converting ICP from the treasury funds of the SNS is pretty straightforward.
 
 ```
-┌───┐                  ┌─────────┐                        ┌──────────┐┌───────────┐┌───────────┐
-│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger│
-└─┬─┘                  └────┬────┘                        └────┬─────┘└─────┬─────┘└─────┬─────┘
-  │                         │                                  │            │            │      
-  │get_account_id(principal)│                                  │            │            │      
-  │                         │                                  │            │            │            
-  │────────────────────────>│                                  │            │            │                  
-  │          (*) TransferSnsTreasuryFunds(AccountID)           │            │            │            
-  │───────────────────────────────────────────────────────────>│            │            │                 
-  │                         │                                  │            │            │            
-  │  notify_icp_transfer()  │                                  │            │            │            
-  │────────────────────────>│                                  │            │            │            
-  │                         │                                  │            │            │            
-  │                         │icrc2_approve(WaterNeuron, amount)│            │            │            
-  │                         │─────────────────────────────────>│            │            │            
-  │                         │                                  │            │            │            
-  │                         │                 icp_to_nicp()    │            │            │            
-  │                         │──────────────────────────────────────────────>│            │            
-  │                         │                                  │            │            │            
-  │                         │            icrc1_transfer(to SNS, nicp_amount)│            │            
-  │                         │───────────────────────────────────────────────────────────>│            
-┌─┴─┐                  ┌────┴────┐                        ┌────┴─────┐┌─────┴─────┐┌─────┴─────┐
-│SNS│                  │Boomerang│                        │ICP ledger││WaterNeuron││nICP ledger│
-└───┘                  └─────────┘                        └──────────┘└───────────┘└───────────┘
+┌───┐                    ┌─────────┐                          ┌──────────┐┌───────────┐┌───────────┐
+│SNS│                    │Boomerang│                          │ICP ledger││WaterNeuron││nICP ledger│
+└─┬─┘                    └────┬────┘                          └────┬─────┘└─────┬─────┘└─────┬─────┘
+  │                           │                                    │            │            │      
+  │get_staking_account_id(SNS)│                                    │            │            │      
+  │──────────────────────────>│                                    │            │            │      
+  │                           │                                    │            │            │      
+  │  (*) TransferSnsTreasuryFunds(to Boomerang(sub SNS), amount)   │            │            │      
+  │───────────────────────────────────────────────────────────────>│            │            │      
+  │                           │                                    │            │            │      
+  │  notify_icp_deposit(SNS)  │                                    │            │            │      
+  │──────────────────────────>│                                    │            │            │      
+  │                           │                                    │            │            │      
+  │                           │icrc2_balance_of(Boomerang(sub SNS))│            │            │      
+  │                           │───────────────────────────────────>│            │            │      
+  │                           │                                    │            │            │      
+  │                           │ icrc2_approve(WaterNeuron, amount) │            │            │      
+  │                           │───────────────────────────────────>│            │            │      
+  │                           │                                    │            │            │      
+  │                           │                  icp_to_nicp()     │            │            │      
+  │                           │────────────────────────────────────────────────>│            │      
+  │                           │                                    │            │            │      
+  │    retreive_nicp(SNS)     │                                    │            │            │      
+  │──────────────────────────>│                                    │            │            │      
+  │                           │                                    │            │            │      
+  │                           │             icrc1_transfer(to SNS, nicp_amount) │            │      
+  │                           │─────────────────────────────────────────────────────────────>│      
+┌─┴─┐                    ┌────┴────┐                          ┌────┴─────┐┌─────┴─────┐┌─────┴─────┐
+│SNS│                    │Boomerang│                          │ICP ledger││WaterNeuron││nICP ledger│
+└───┘                    └─────────┘                          └──────────┘└───────────┘└───────────┘
+
+
 ```
 
 ## Flow: nICP to ICP
@@ -52,25 +60,38 @@ Step 1: Register a generic function to transfer nICP.
 
 Step 2: Execute the previously registered function.
 
-┌───┐                                 ┌───────────┐                       ┌─────────┐  ┌───────────┐┌──────────┐
-│SNS│                                 │nICP ledger│                       │Boomerang│  │WaterNeuron││ICP ledger│
-└─┬─┘                                 └─────┬─────┘                       └────┬────┘  └─────┬─────┘└────┬─────┘
-  │                                         │                                  │             │           │      
-  │(*) ExecuteGenericNervousSystemFunction()│                                  │             │           │      
-  │────────────────────────────────────────>│                                  │             │           │      
-  │                                         │                                  │             │           │      
-  │                           notify_nicp_transfer()                           │             │           │      
-  │───────────────────────────────────────────────────────────────────────────>│             │           │      
-  │                                         │                                  │             │           │      
-  │                                         │icrc2_approve(WaterNeuron, amount)│             │           │      
-  │                                         │<─────────────────────────────────│             │           │      
-  │                                         │                                  │             │           │      
-  │                                         │                                  │nicp_to_icp()│           │      
-  │                                         │                                  │────────────>│           │      
-  │                                         │                                  │             │           │      
-  │                                         │                                  │transfer(to SNS, amount) │      
-  │                                         │                                  │────────────────────────>│      
-┌─┴─┐                                 ┌─────┴─────┐                       ┌────┴────┐  ┌─────┴─────┐┌────┴─────┐
-│SNS│                                 │nICP ledger│                       │Boomerang│  │WaterNeuron││ICP ledger│
-└───┘                                 └───────────┘                       └─────────┘  └───────────┘└──────────┘
+┌───┐                   ┌─────────┐                                ┌───────────┐┌───────────┐┌──────────┐
+│SNS│                   │Boomerang│                                │nICP ledger││WaterNeuron││ICP ledger│
+└─┬─┘                   └────┬────┘                                └─────┬─────┘└─────┬─────┘└────┬─────┘
+  │                          │                                           │            │           │      
+  │get_unstaking_account(SNS)│                                           │            │           │      
+  │─────────────────────────>│                                           │            │           │      
+  │                          │                                           │            │           │      
+  │(*) ExecuteGenericNervousSystemFunction(to Boomerang(sub SNS), amount)│            │           │      
+  │─────────────────────────────────────────────────────────────────────>│            │           │      
+  │                          │                                           │            │           │      
+  │ notify_nicp_deposit(SNS) │                                           │            │           │      
+  │─────────────────────────>│                                           │            │           │      
+  │                          │                                           │            │           │      
+  │                          │   icrc2_balance_of(Boomerang(sub SNS))    │            │           │      
+  │                          │──────────────────────────────────────────>│            │           │      
+  │                          │                                           │            │           │      
+  │                          │    icrc2_approve(WaterNeuron, amount)     │            │           │      
+  │                          │──────────────────────────────────────────>│            │           │      
+  │                          │                                           │            │           │      
+  │                          │                     nicp_to_icp()         │            │           │      
+  │                          │───────────────────────────────────────────────────────>│           │      
+  │                          │                                           │            │           │      
+  │  try_retreive_icp(SNS)   │                                           │            │           │      
+  │─────────────────────────>│                                           │            │           │      
+  │                          │                                           │            │           │      
+  │                          │                icrc2_balance_of(Boomerang(sub SNS))    │           │      
+  │                          │───────────────────────────────────────────────────────────────────>│      
+  │                          │                                           │            │           │      
+  │                          │                 icrc_transfer(to SNS, icp_amount)      │           │      
+  │                          │───────────────────────────────────────────────────────────────────>│      
+┌─┴─┐                   ┌────┴────┐                                ┌─────┴─────┐┌─────┴─────┐┌────┴─────┐
+│SNS│                   │Boomerang│                                │nICP ledger││WaterNeuron││ICP ledger│
+└───┘                   └─────────┘                                └───────────┘└───────────┘└──────────┘
+
 ```
