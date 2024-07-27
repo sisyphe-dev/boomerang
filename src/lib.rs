@@ -1,6 +1,6 @@
 use candid::{CandidType, Deserialize, Nat, Principal};
 use ic_base_types::PrincipalId;
-use icp_ledger::Subaccount;
+use icp_ledger::{AccountIdentifier, Subaccount};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferError;
 use icrc_ledger_types::icrc2::approve::ApproveError;
@@ -26,13 +26,28 @@ pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48
 pub const E8S: u64 = 100_000_000;
 pub const TRANSFER_FEE: u64 = 10_000;
 
-pub fn derive_account(target: Principal) -> Account {
-    let subaccount = Subaccount::from(&PrincipalId::from(target));
+pub fn derive_account(principal: Principal, seed: u8) -> Account {
+    let mut seed_derivation = vec![seed];
+    seed_derivation.extend(&principal.as_slice()[1..]);
+    let subaccount = Subaccount::from(&PrincipalId::from(Principal::from_slice(&seed_derivation)));
 
     Account {
         owner: self_canister_id(),
         subaccount: Some(subaccount.0),
     }
+}
+
+pub fn derive_account_id(principal: Principal, seed: u8) -> AccountIdentifier {
+    let mut seed_derivation = vec![seed];
+    seed_derivation.extend(&principal.as_slice()[1..]);
+    let subaccount = Subaccount::from(&PrincipalId::from(Principal::from_slice(&seed_derivation)));
+    AccountIdentifier::new(PrincipalId::from(self_canister_id()), Some(subaccount))
+}
+
+pub fn derive_subaccount(principal: Principal, seed: u8) -> Subaccount {
+    let mut seed_derivation = vec![seed];
+    seed_derivation.extend(&principal.as_slice()[1..]);
+    Subaccount::from(&PrincipalId::from(Principal::from_slice(&seed_derivation)))
 }
 
 #[test]

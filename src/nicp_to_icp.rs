@@ -1,19 +1,16 @@
 use crate::log::INFO;
 use crate::{
-    derive_account, self_canister_id, BoomerangError, ConversionArg, ConversionError,
+    derive_account, derive_subaccount, BoomerangError, ConversionArg, ConversionError,
     WithdrawalSuccess, E8S, ICP_LEDGER_ID, NICP_LEDGER_ID, TRANSFER_FEE, WATER_NEURON_ID,
 };
 use candid::{Nat, Principal};
-use ic_base_types::PrincipalId;
 use ic_canister_log::log;
-use icp_ledger::Subaccount;
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
-use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 use icrc_ledger_types::icrc2::approve::ApproveArgs;
 
 pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess, BoomerangError> {
-    let boomerang_account = derive_account(target);
+    let boomerang_account = derive_account(target, 2);
 
     let client = ICRC1Client {
         runtime: CdkRuntime,
@@ -90,13 +87,7 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
         ledger_canister_id: ICP_LEDGER_ID,
     };
 
-    let boomerang_id = self_canister_id();
-    let subaccount = Subaccount::from(&PrincipalId::from(target));
-
-    let target_account = Account {
-        owner: boomerang_id,
-        subaccount: Some(subaccount.0),
-    };
+    let target_account = derive_account(target, 2);
 
     let icp_balance_e8s: u64 = match icp_client.balance_of(target_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
@@ -118,7 +109,7 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             memo: None,
             amount: to_transfer_amount.into(),
             fee: Some(TRANSFER_FEE.into()),
-            from_subaccount: Some(subaccount.0),
+            from_subaccount: Some(derive_subaccount(target, 2).0),
             created_at_time: None,
             to: target.into(),
         })
