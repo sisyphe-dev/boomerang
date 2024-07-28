@@ -19,12 +19,12 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
     let boomerang_id = self_canister_id();
     let subaccount = derive_subaccount_staking(target);
 
-    let target_account = Account {
+    let boomerang_account = Account {
         owner: boomerang_id,
         subaccount: Some(subaccount),
     };
 
-    let nicp_balance_e8s: u64 = match nicp_client.balance_of(target_account).await {
+    let nicp_balance_e8s: u64 = match nicp_client.balance_of(boomerang_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
         Err((code, msg)) => {
             return Err(BoomerangError::BalanceOfError(format!(
@@ -40,7 +40,7 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
             memo: None,
             amount: to_transfer_amount.into(),
             fee: Some(TRANSFER_FEE.into()),
-            from_subaccount: Some(subaccount),
+            from_subaccount: boomerang_account.subaccount,
             created_at_time: None,
             to: target.into(),
         })
@@ -95,7 +95,7 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
     };
 
     let approve_args = ApproveArgs {
-        from_subaccount: Some(subaccount),
+        from_subaccount: boomerang_account.subaccount,
         spender,
         amount: balance_e8s.clone(),
         expected_allowance: None,
@@ -120,7 +120,7 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
 
     let conversion_arg = ConversionArg {
         amount_e8s: transfer_amount_e8s,
-        maybe_subaccount: Some(subaccount),
+        maybe_subaccount: boomerang_account.subaccount,
     };
 
     let conversion_result: (Result<DepositSuccess, ConversionError>,) =
