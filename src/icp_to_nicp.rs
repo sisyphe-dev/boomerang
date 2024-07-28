@@ -59,10 +59,10 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
     }
 }
 
-pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, BoomerangError> {
+pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, BoomerangError> {
     let boomerang_id = self_canister_id();
 
-    let subaccount = derive_subaccount_staking(client_id);
+    let subaccount = derive_subaccount_staking(target);
 
     let boomerang_account = Account {
         owner: boomerang_id,
@@ -74,8 +74,8 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
         ledger_canister_id: ICP_LEDGER_ID,
     };
 
-    let balance_e8s = match client.balance_of(boomerang_account).await {
-        Ok(balance) => balance,
+    let balance_e8s: u64 = match client.balance_of(boomerang_account).await {
+        Ok(balance) => balance.0.try_into().unwrap(),
         Err((code, msg)) => {
             return Err(BoomerangError::BalanceOfError(format!(
                 "code: {code} - message: {msg}"
@@ -85,38 +85,36 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
 
     log!(
         INFO,
-        "Fetched balance for {client_id}: {} ICP",
-        balance_e8s.clone() / Nat::from(E8S)
+        "Fetched balance for {target}: {} ICP",
+        balance_e8s / E8S
     );
 
     let spender = Account {
         owner: WATER_NEURON_ID,
         subaccount: None,
     };
-
+  
     let approve_args = ApproveArgs {
-        from_subaccount: boomerang_account.subaccount,
+        from_subaccount: Some(subaccount),
         spender,
-        amount: balance_e8s.clone(),
+        amount: balance_e8s.into(),
         expected_allowance: None,
         expires_at: None,
-        fee: None,
+        fee: Some(Nat::from(TRANSFER_FEE)),
         memo: None,
         created_at_time: None,
     };
 
     match client.approve(approve_args).await.unwrap() {
         Ok(block_index) => {
-            log! {INFO, "Approved for {client_id} occured at block index: {}", block_index};
+            log! {INFO, "Approved for {target} occured at block index: {}", block_index};
         }
         Err(error) => {
             return Err(BoomerangError::ApproveError(error));
         }
     };
 
-    let amount: u64 = balance_e8s.clone().0.try_into().unwrap();
-
-    let transfer_amount_e8s = amount.checked_sub(2 * TRANSFER_FEE).expect("underflow");
+    let transfer_amount_e8s = balance_e8s.checked_sub(2 * TRANSFER_FEE).expect("underflow");
 
     let conversion_arg = ConversionArg {
         amount_e8s: transfer_amount_e8s,

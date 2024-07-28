@@ -12,18 +12,6 @@
 			"type": "custom",
 			"wasm": "wasm/water_neuron.wasm"
 		},
-		"dapp_frontend": {
-			"source": ["dist"],
-			"type": "assets",
-			"frontend": {
-				"entrypoint": "dist/_app/immutable/entry/app.7804c5c6.js"
-			}
-		},
-		"internet_identity": {
-			"candid": "candid/internet_identity.did",
-			"type": "custom",
-			"wasm": "wasm/internet_identity_dev.wasm.gz"
-		},
 		"nicp_ledger": {
 			"candid": "candid/ledger.did",
 			"type": "custom",
