@@ -129,5 +129,6 @@ pub enum BoomerangError {
     BalanceOfError(String),
     ConversionError(ConversionError),
     TransferError(TransferError),
+    CustomError(String),
     IcpNotAvailable,
 }

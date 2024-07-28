@@ -50,14 +50,22 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
         created_at_time: None,
     };
 
-    match client.approve(approve_args).await.unwrap() {
-        Ok(block_index) => {
-            log! {INFO, "Approved for {target} occured at block index: {}", block_index};
+    match client.approve(approve_args).await {
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log! {INFO, "Approved for {target} occured at block index: {}", block_index};
+            }
+            Err(error) => {
+                return Err(BoomerangError::ApproveError(error));
+            }
+        },
+        Err((code, msg)) => {
+            return Err(BoomerangError::CustomError(format!(
+                "code: {code} - msg: {msg}"
+            )));
         }
-        Err(error) => {
-            return Err(BoomerangError::ApproveError(error));
-        }
-    };
+    }
+     
 
     let transfer_amount_e8s = balance_e8s
         .checked_sub(2 * TRANSFER_FEE)
@@ -127,16 +135,22 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             to: target.into(),
         })
         .await
-        .unwrap()
     {
-        Ok(block_index) => {
-            log!(
-                INFO,
-                "Transfered nICP for {target} at block index: {}",
-                block_index
-            );
-            Ok(block_index)
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log!(
+                    INFO,
+                    "Transfered ICP for {target} at block index: {}",
+                    block_index
+                );
+                Ok(block_index)
+            }
+            Err(e) => Err(BoomerangError::TransferError(e)),
+        },
+        Err((code, msg)) => {
+            return Err(BoomerangError::CustomError(format!(
+                "code: {code} - msg: {msg}"
+            )));
         }
-        Err(e) => Err(BoomerangError::TransferError(e)),
     }
 }

@@ -9,7 +9,6 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 use icrc_ledger_types::icrc2::approve::ApproveArgs;
-use icrc_ledger_types::icrc2::approve::ApproveError;
 
 pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
     let nicp_client = ICRC1Client {
@@ -46,17 +45,23 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
             to: target.into(),
         })
         .await
-        .unwrap()
     {
-        Ok(block_index) => {
-            log!(
-                INFO,
-                "Transfered nICP for {target} at block index: {}",
-                block_index
-            );
-            Ok(block_index)
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log!(
+                    INFO,
+                    "Transfered nICP for {target} at block index: {}",
+                    block_index
+                );
+                Ok(block_index)
+            }
+            Err(e) => Err(BoomerangError::TransferError(e)),
+        },
+        Err((code, msg)) => {
+            return Err(BoomerangError::CustomError(format!(
+                "code: {code} - msg: {msg}"
+            )));
         }
-        Err(e) => Err(BoomerangError::TransferError(e)),
     }
 }
 
@@ -94,7 +99,7 @@ pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, Boo
         owner: WATER_NEURON_ID,
         subaccount: None,
     };
-  
+
     let approve_args = ApproveArgs {
         from_subaccount: boomerang_account.subaccount,
         spender,
@@ -106,16 +111,25 @@ pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, Boo
         created_at_time: None,
     };
 
-    match client.approve(approve_args).await.unwrap() {
-        Ok(block_index) => {
-            log! {INFO, "Approved for {target} occured at block index: {}", block_index};
-        }
-        Err(error) => {
-            return Err(BoomerangError::ApproveError(error));
+    match client.approve(approve_args).await {
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log! {INFO, "Approved for {target} occured at block index: {}", block_index};
+            }
+            Err(error) => {
+                return Err(BoomerangError::ApproveError(error));
+            }
+        },
+        Err((code, msg)) => {
+            return Err(BoomerangError::CustomError(format!(
+                "code: {code} - msg: {msg}"
+            )));
         }
     };
 
-    let transfer_amount_e8s = balance_e8s.checked_sub(2 * TRANSFER_FEE).expect("underflow");
+    let transfer_amount_e8s = balance_e8s
+        .checked_sub(2 * TRANSFER_FEE)
+        .expect("underflow");
 
     let conversion_arg = ConversionArg {
         amount_e8s: transfer_amount_e8s,

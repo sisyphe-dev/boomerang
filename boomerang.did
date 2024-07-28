@@ -16,6 +16,7 @@ type BoomerangError = variant {
   IcpNotAvailable;
   ApproveError : ApproveError;
   BalanceOfError : text;
+  CustomError : text;
 };
 type ConversionError = variant {
   GenericError : record { code : int32; message : text };
