@@ -9,6 +9,9 @@ pub mod icp_to_nicp;
 pub mod log;
 pub mod nicp_to_icp;
 
+#[cfg(test)]
+pub mod state_machine;
+
 // "ryjl3-tyaaa-aaaaa-aaaba-cai"
 pub const ICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 2, 1, 1]);
 

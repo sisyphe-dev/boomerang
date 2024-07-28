@@ -30,3 +30,6 @@ ic-canister-log = "0.2.0"
 
 [dev-dependencies]
 candid_parser = "0.1.4"
+lazy_static = "1.4.0"
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-management-canister-types = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
