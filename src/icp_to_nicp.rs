@@ -9,6 +9,7 @@ use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
 use icrc_ledger_types::icrc2::approve::ApproveArgs;
+use icrc_ledger_types::icrc2::approve::ApproveError;
 
 pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
     let nicp_client = ICRC1Client {
@@ -61,7 +62,7 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
 
 pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, BoomerangError> {
     let boomerang_id = self_canister_id();
-
+    ic_cdk::println!("{boomerang_id}");
     let subaccount = derive_subaccount_staking(target);
 
     let boomerang_account = Account {
@@ -95,12 +96,12 @@ pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, Boo
     };
   
     let approve_args = ApproveArgs {
-        from_subaccount: Some(subaccount),
+        from_subaccount: boomerang_account.subaccount,
         spender,
         amount: balance_e8s.into(),
         expected_allowance: None,
         expires_at: None,
-        fee: Some(Nat::from(TRANSFER_FEE)),
+        fee: None,
         memo: None,
         created_at_time: None,
     };
@@ -131,7 +132,7 @@ pub async fn notify_icp_deposit(target: Principal) -> Result<DepositSuccess, Boo
             log!(
                 INFO,
                 "Transfered {} ICP at block index: {}",
-                balance_e8s.clone() / E8S,
+                balance_e8s / E8S,
                 success.block_index
             );
             Ok(success)

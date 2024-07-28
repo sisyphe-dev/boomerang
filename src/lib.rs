@@ -72,12 +72,12 @@ fn check_canister_ids() {
     );
 }
 
-#[cfg(target = "wasm32-unknown-unkown")]
+#[cfg(target_arch = "wasm32")]
 pub fn self_canister_id() -> Principal {
     ic_cdk::id()
 }
 
-#[cfg(not(target = "wasm32-unknown-unkown"))]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn self_canister_id() -> Principal {
     Principal::anonymous()
 }
