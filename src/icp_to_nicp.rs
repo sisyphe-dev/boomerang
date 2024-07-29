@@ -1,12 +1,10 @@
 use crate::log::INFO;
 use crate::{
-    self_canister_id, BoomerangError, ConversionArg, ConversionError, DepositSuccess, E8S,
-    ICP_LEDGER_ID, NICP_LEDGER_ID, TRANSFER_FEE, WATER_NEURON_ID,
+    derive_subaccount_staking, self_canister_id, BoomerangError, ConversionArg, ConversionError,
+    DepositSuccess, E8S, ICP_LEDGER_ID, NICP_LEDGER_ID, TRANSFER_FEE, WATER_NEURON_ID,
 };
 use candid::{Nat, Principal};
-use ic_base_types::PrincipalId;
 use ic_canister_log::log;
-use icp_ledger::Subaccount;
 use icrc_ledger_client_cdk::{CdkRuntime, ICRC1Client};
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::TransferArg;
@@ -19,11 +17,11 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
     };
 
     let boomerang_id = self_canister_id();
-    let subaccount = Subaccount::from(&PrincipalId::from(target));
+    let subaccount = derive_subaccount_staking(target);
 
     let target_account = Account {
         owner: boomerang_id,
-        subaccount: Some(subaccount.0),
+        subaccount: Some(subaccount),
     };
 
     let nicp_balance_e8s: u64 = match nicp_client.balance_of(target_account).await {
@@ -42,7 +40,7 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
             memo: None,
             amount: to_transfer_amount.into(),
             fee: Some(TRANSFER_FEE.into()),
-            from_subaccount: Some(subaccount.0),
+            from_subaccount: Some(subaccount),
             created_at_time: None,
             to: target.into(),
         })
@@ -64,11 +62,11 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
 pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, BoomerangError> {
     let boomerang_id = self_canister_id();
 
-    let subaccount = Subaccount::from(&PrincipalId::from(client_id));
+    let subaccount = derive_subaccount_staking(client_id);
 
     let boomerang_account = Account {
         owner: boomerang_id,
-        subaccount: Some(subaccount.0),
+        subaccount: Some(subaccount),
     };
 
     let client = ICRC1Client {
@@ -97,7 +95,7 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
     };
 
     let approve_args = ApproveArgs {
-        from_subaccount: Some(subaccount.0),
+        from_subaccount: Some(subaccount),
         spender,
         amount: balance_e8s.clone(),
         expected_allowance: None,
@@ -122,7 +120,7 @@ pub async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, 
 
     let conversion_arg = ConversionArg {
         amount_e8s: transfer_amount_e8s,
-        maybe_subaccount: Some(subaccount.0),
+        maybe_subaccount: Some(subaccount),
     };
 
     let conversion_result: (Result<DepositSuccess, ConversionError>,) =

@@ -1,10 +1,11 @@
 use boomerang::{
-    derive_account, self_canister_id, BoomerangError, DepositSuccess, WithdrawalSuccess,
+    derive_subaccount_staking, derive_subaccount_unstaking, self_canister_id, BoomerangError,
+    DepositSuccess, WithdrawalSuccess,
 };
 use candid::{Nat, Principal};
 use ic_base_types::PrincipalId;
 use ic_cdk::{query, update};
-use icp_ledger::{AccountIdentifier, Subaccount};
+use icp_ledger::AccountIdentifier;
 use icrc_ledger_types::icrc1::account::Account;
 
 fn main() {}
@@ -12,8 +13,11 @@ fn main() {}
 #[query]
 fn get_staking_account_id(principal: Principal) -> AccountIdentifier {
     let boomerang_id = self_canister_id();
-    let subaccount = Subaccount::from(&PrincipalId::from(principal));
-    AccountIdentifier::new(PrincipalId::from(boomerang_id), Some(subaccount))
+    let subaccount = derive_subaccount_staking(principal);
+    AccountIdentifier::new(
+        PrincipalId::from(boomerang_id),
+        Some(icp_ledger::Subaccount(subaccount)),
+    )
 }
 
 #[update]
@@ -28,7 +32,10 @@ async fn notify_icp_deposit(client_id: Principal) -> Result<DepositSuccess, Boom
 
 #[query]
 fn get_unstaking_account(target: Principal) -> Account {
-    derive_account(target)
+    Account {
+        owner: self_canister_id(),
+        subaccount: Some(derive_subaccount_unstaking(target)),
+    }
 }
 
 #[update]
