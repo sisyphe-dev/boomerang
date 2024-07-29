@@ -146,10 +146,8 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             }
             Err(e) => Err(BoomerangError::TransferError(e)),
         },
-        Err((code, msg)) => {
-            Err(BoomerangError::CustomError(format!(
-                "code: {code} - msg: {msg}"
-            )))
-        }
+        Err((code, msg)) => Err(BoomerangError::CustomError(format!(
+            "code: {code} - msg: {msg}"
+        ))),
     }
 }
