@@ -1,5 +1,5 @@
-use crate::E8S;
-use candid::{CandidType, Deserialize, Encode, Nat, Principal};
+use crate::{E8S, TRANSFER_FEE};
+use candid::{CandidType, Decode, Deserialize, Encode, Nat, Principal};
 use ic_icrc1_ledger::{
     ArchiveOptions, InitArgs as LedgerInitArgs, InitArgsBuilder as LedgerInitArgsBuilder,
     LedgerArgument,
@@ -12,21 +12,26 @@ use ic_sns_governance::pb::v1::{Neuron, NeuronId, NeuronPermission, NeuronPermis
 use ic_sns_init::SnsCanisterInitPayloads;
 use ic_sns_root::pb::v1::SnsRootCanister;
 use ic_sns_swap::pb::v1::{Init as SwapInit, NeuronBasketConstructionParameters};
-use ic_state_machine_tests::{CanisterId, PrincipalId, StateMachine, WasmResult, CanisterInstallMode};
+use ic_state_machine_tests::{
+    CanisterId, CanisterInstallMode, PrincipalId, StateMachine, WasmResult,
+};
 use icp_ledger::{AccountIdentifier, LedgerCanisterInitPayload, Tokens};
 use icrc_ledger_types::icrc1::account::Account;
+use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
 use lazy_static::lazy_static;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
 use std::process::Command;
+
+pub mod tests;
 
 const ONE_HOUR_SECONDS: u64 = 60 * 60;
 const ONE_DAY_SECONDS: u64 = 24 * 60 * 60;
 const ONE_YEAR_SECONDS: u64 = (4 * 365 + 1) * ONE_DAY_SECONDS / 4;
 const ONE_MONTH_SECONDS: u64 = ONE_YEAR_SECONDS / 12;
 
- const DEFAULT_LEDGER_FEE: u64 = 10_000;
- const NEURON_LEDGER_FEE: u64 = 1_000_000;
+const DEFAULT_LEDGER_FEE: u64 = 10_000;
+const NEURON_LEDGER_FEE: u64 = 1_000_000;
 
 lazy_static! {
     static ref CARGO_BUILD_RESULT: Result<(), std::io::Error> = cargo_build();
@@ -218,7 +223,9 @@ impl BoomerangSetup {
         )
         .unwrap();
 
-        let boomerang_id = env.install_canister(boomerang_wasm(), Encode!(&()).unwrap(), None).unwrap();
+        let boomerang_id = env
+            .install_canister(boomerang_wasm(), Encode!(&()).unwrap(), None)
+            .unwrap();
 
         Self {
             env,
@@ -229,6 +236,92 @@ impl BoomerangSetup {
             icp_ledger_id,
             nicp_ledger_id,
         }
+    }
+
+    pub fn icp_transfer(
+        &self,
+        caller: Principal,
+        from_subaccount: Option<[u8; 32]>,
+        transfer_amount: u64,
+        target: Principal,
+    ) -> Result<Nat, TransferError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.icp_ledger_id,
+                        "icrc1_transfer",
+                        Encode!(
+                            &(TransferArg {
+                                memo: None,
+                                amount: transfer_amount.into(),
+                                fee: Some(TRANSFER_FEE.into()),
+                                from_subaccount,
+                                created_at_time: None,
+                                to: target.into(),
+                            })
+                        )
+                        .unwrap()
+                    )
+                    .expect("failed icrc1_transfer in icp_transfer")
+            ),
+            Result<Nat, TransferError>
+        )
+        .expect("failed to decode icrc1_transfer in icp_transfer")
+    }
+
+    pub fn nicp_transfer(
+        &self,
+        caller: Principal,
+        from_subaccount: Option<[u8; 32]>,
+        transfer_amount: u64,
+        target: Principal,
+    ) -> Result<Nat, TransferError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.nicp_ledger_id,
+                        "icrc1_transfer",
+                        Encode!(
+                            &(TransferArg {
+                                memo: None,
+                                amount: transfer_amount.into(),
+                                fee: Some(TRANSFER_FEE.into()),
+                                from_subaccount,
+                                created_at_time: None,
+                                to: target.into(),
+                            })
+                        )
+                        .unwrap()
+                    )
+                    .expect("failed icrc1_transfer in nicp_transfer")
+            ),
+            Result<Nat, TransferError>
+        )
+        .expect("failed to decode icrc1_transfer in nicp_transfer")
+    }
+
+    fn get_staking_account_id(&self, caller: Principal) -> AccountIdentifier {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "get_staking_account_id",
+                        Encode!(
+                            &(caller)
+                        )
+                        .unwrap()
+                    )
+                    .expect("failed icrc1_transfer in nicp_transfer")
+            ),
+            AccountIdentifier
+        )
+        .expect("failed to decode icrc1_transfer in nicp_transfer")
     }
 }
 
@@ -547,4 +640,13 @@ fn compute_neuron_staking_subaccount_bytes(controller: Principal, nonce: u64) ->
     hasher.update(controller.as_slice());
     hasher.update(nonce.to_be_bytes());
     hasher.finalize().into()
+}
+
+fn assert_reply(result: WasmResult) -> Vec<u8> {
+    match result {
+        WasmResult::Reply(bytes) => bytes,
+        WasmResult::Reject(reject) => {
+            panic!("Expected a successful reply, got a reject: {}", reject)
+        }
+    }
 }
