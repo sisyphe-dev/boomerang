@@ -5,6 +5,8 @@ use ic_icrc1_ledger::{
     LedgerArgument,
 };
 use ic_nns_constants::{GOVERNANCE_CANISTER_ID, LEDGER_CANISTER_ID};
+
+use ic_nns_governance::pb::v1::{Governance, NetworkEconomics};
 use ic_sns_governance::init::GovernanceCanisterInitPayloadBuilder;
 use ic_sns_governance::pb::v1::governance::Version;
 use ic_sns_governance::pb::v1::neuron::DissolveState;
@@ -15,17 +17,20 @@ use ic_sns_swap::pb::v1::{Init as SwapInit, NeuronBasketConstructionParameters};
 use ic_state_machine_tests::{
     CanisterId, CanisterInstallMode, PrincipalId, StateMachine, WasmResult,
 };
-use icp_ledger::{AccountIdentifier, LedgerCanisterInitPayload, Tokens};
+use icp_ledger::{
+    AccountIdentifier, LedgerCanisterInitPayload, Memo, Subaccount, Tokens, TransferArgs,
+    TransferError,
+};
 use icrc_ledger_types::icrc1::account::Account;
-use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError};
+use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError as IcrcTransferError};
 use lazy_static::lazy_static;
+use prost::Message;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
 use std::process::Command;
 
 pub mod tests;
 
-const ONE_HOUR_SECONDS: u64 = 60 * 60;
 const ONE_DAY_SECONDS: u64 = 24 * 60 * 60;
 const ONE_YEAR_SECONDS: u64 = (4 * 365 + 1) * ONE_DAY_SECONDS / 4;
 const ONE_MONTH_SECONDS: u64 = ONE_YEAR_SECONDS / 12;
@@ -52,16 +57,16 @@ fn icp_ledger_wasm() -> Vec<u8> {
     get_wasm("./src/state_machine/canisters/ledger-canister.wasm.gz")
 }
 
+fn governance_wasm() -> Vec<u8> {
+    get_wasm("./src/state_machine/canisters/governance-canister.wasm.gz")
+}
+
 fn water_neuron_wasm() -> Vec<u8> {
     get_wasm("./wasm/water_neuron.wasm")
 }
 
 fn ledger_wasm() -> Vec<u8> {
     get_wasm("./wasm/ic-icrc1-ledger.wasm.gz")
-}
-
-fn governance_wasm() -> Vec<u8> {
-    get_wasm("./src/state_machine/canisters/governance-canister_test.wasm.gz")
 }
 
 fn sns_governance() -> Vec<u8> {
@@ -122,35 +127,52 @@ pub struct UpgradeArg {
 }
 
 const DEFAULT_PRINCIPAL_ID: u64 = 10352385;
+const USER_PRINCIPAL_ID: u64 = 212;
 
 impl BoomerangSetup {
     fn new() -> Self {
         let env = StateMachine::new();
         let minter = PrincipalId::new_user_test_id(DEFAULT_PRINCIPAL_ID);
+        let caller = PrincipalId::new_user_test_id(USER_PRINCIPAL_ID);
 
         let mut initial_balances = HashMap::new();
         initial_balances.insert(
             AccountIdentifier::new(minter.into(), None),
             Tokens::from_e8s(22_000_000 * E8S),
         );
-
-        let icp_ledger_id = env
-            .install_canister(
-                icp_ledger_wasm(),
-                Encode!(&LedgerCanisterInitPayload::builder()
-                    .initial_values(initial_balances)
-                    .transfer_fee(Tokens::from_e8s(10_000))
-                    .minting_account(GOVERNANCE_CANISTER_ID.get().into())
-                    .token_symbol_and_name("ICP", "Internet Computer")
-                    .feature_flags(icp_ledger::FeatureFlags { icrc2: true })
-                    .build()
-                    .unwrap())
-                .unwrap(),
-                None,
-            )
-            .unwrap();
+        initial_balances.insert(
+            AccountIdentifier::new(caller.into(), None),
+            Tokens::from_e8s(1_000_000 * E8S),
+        );
 
         let nicp_ledger_id = env.create_canister(None);
+
+        let arg = Governance {
+            economics: Some(NetworkEconomics::with_default_values()),
+            wait_for_quiet_threshold_seconds: 60 * 60 * 24 * 4, // 4 days
+            short_voting_period_seconds: 60 * 60 * 12,          // 12 hours
+            neuron_management_voting_period_seconds: Some(60 * 60 * 48), // 48 hours
+            ..Default::default()
+        };
+        let _governance_id = env
+            .install_canister(governance_wasm(), arg.encode_to_vec(), None)
+            .unwrap();
+
+        let icp_ledger_id = env.create_canister(None);
+        env.install_existing_canister(
+            icp_ledger_id,
+            icp_ledger_wasm(),
+            Encode!(&LedgerCanisterInitPayload::builder()
+                .initial_values(initial_balances)
+                .transfer_fee(Tokens::from_e8s(10_000))
+                .minting_account(GOVERNANCE_CANISTER_ID.get().into())
+                .token_symbol_and_name("ICP", "Internet Computer")
+                .feature_flags(icp_ledger::FeatureFlags { icrc2: true })
+                .build()
+                .unwrap())
+            .unwrap(),
+        )
+        .unwrap();
 
         let water_neuron_id = env.create_canister(None);
         let water_neuron_principal = water_neuron_id.get().0;
@@ -241,32 +263,33 @@ impl BoomerangSetup {
     pub fn icp_transfer(
         &self,
         caller: Principal,
-        from_subaccount: Option<[u8; 32]>,
+        from_subaccount: Option<Subaccount>,
         transfer_amount: u64,
-        target: Principal,
-    ) -> Result<Nat, TransferError> {
+        target: AccountIdentifier,
+    ) -> Result<u64, TransferError> {
+        println!("Address targeted {:?}", target.to_address());
         Decode!(
             &assert_reply(
                 self.env
                     .execute_ingress_as(
                         caller.into(),
                         self.icp_ledger_id,
-                        "icrc1_transfer",
+                        "transfer",
                         Encode!(
-                            &(TransferArg {
-                                memo: None,
-                                amount: transfer_amount.into(),
-                                fee: Some(TRANSFER_FEE.into()),
+                            &(TransferArgs {
+                                memo: Memo(0),
+                                amount: Tokens::from_e8s(transfer_amount * E8S),
+                                fee: Tokens::from_e8s(TRANSFER_FEE * E8S),
                                 from_subaccount,
                                 created_at_time: None,
-                                to: target.into(),
+                                to: target.to_address(),
                             })
                         )
                         .unwrap()
                     )
                     .expect("failed icrc1_transfer in icp_transfer")
             ),
-            Result<Nat, TransferError>
+            Result<u64, TransferError>
         )
         .expect("failed to decode icrc1_transfer in icp_transfer")
     }
@@ -277,7 +300,7 @@ impl BoomerangSetup {
         from_subaccount: Option<[u8; 32]>,
         transfer_amount: u64,
         target: Principal,
-    ) -> Result<Nat, TransferError> {
+    ) -> Result<Nat, IcrcTransferError> {
         Decode!(
             &assert_reply(
                 self.env
@@ -299,7 +322,7 @@ impl BoomerangSetup {
                     )
                     .expect("failed icrc1_transfer in nicp_transfer")
             ),
-            Result<Nat, TransferError>
+            Result<Nat, IcrcTransferError>
         )
         .expect("failed to decode icrc1_transfer in nicp_transfer")
     }
@@ -312,10 +335,7 @@ impl BoomerangSetup {
                         caller.into(),
                         self.boomerang_id,
                         "get_staking_account_id",
-                        Encode!(
-                            &(caller)
-                        )
-                        .unwrap()
+                        Encode!(&(caller)).unwrap()
                     )
                     .expect("failed icrc1_transfer in nicp_transfer")
             ),

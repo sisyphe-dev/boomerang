@@ -40,3 +40,5 @@ ic-sns-swap = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc
 ic-sns-init = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
 ic-nns-constants = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
 ic-icrc1-ledger = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-nns-governance = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+prost = "0.12.6"
