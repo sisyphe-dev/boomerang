@@ -65,7 +65,6 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
             )));
         }
     }
-     
 
     let transfer_amount_e8s = balance_e8s
         .checked_sub(2 * TRANSFER_FEE)
@@ -148,9 +147,9 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             Err(e) => Err(BoomerangError::TransferError(e)),
         },
         Err((code, msg)) => {
-            return Err(BoomerangError::CustomError(format!(
+            Err(BoomerangError::CustomError(format!(
                 "code: {code} - msg: {msg}"
-            )));
+            )))
         }
     }
 }

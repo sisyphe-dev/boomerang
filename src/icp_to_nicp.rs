@@ -58,9 +58,9 @@ pub async fn retrieve_nicp(target: Principal) -> Result<Nat, BoomerangError> {
             Err(e) => Err(BoomerangError::TransferError(e)),
         },
         Err((code, msg)) => {
-            return Err(BoomerangError::CustomError(format!(
+            Err(BoomerangError::CustomError(format!(
                 "code: {code} - msg: {msg}"
-            )));
+            )))
         }
     }
 }
