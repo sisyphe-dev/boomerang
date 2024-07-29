@@ -39,32 +39,36 @@ fn get_wasm(dir: &str) -> Vec<u8> {
     std::fs::read(file_path).unwrap()
 }
 
+fn boomerang_wasm() -> Vec<u8> {
+    get_wasm("./target/wasm32-unknown-unknown/release/boomerang.wasm")
+}
+
 fn icp_ledger_wasm() -> Vec<u8> {
     get_wasm("./src/state_machine/canisters/ledger-canister.wasm.gz")
 }
 
 fn water_neuron_wasm() -> Vec<u8> {
-    get_wasm("../target/wasm32-unknown-unknown/release/water-neuron.wasm.gz")
+    get_wasm("./wasm/water_neuron.wasm")
 }
 
 fn ledger_wasm() -> Vec<u8> {
-    get_wasm("./src/state_machine/canisters/ic-icrc1-ledger.wasm.gz")
+    get_wasm("./wasm/ic-icrc1-ledger.wasm.gz")
 }
 
 fn governance_wasm() -> Vec<u8> {
-    get_wasm("./src/state_machine/canisters/governance-canister.wasm.gz")
+    get_wasm("./src/state_machine/canisters/governance-canister_test.wasm.gz")
 }
 
 fn sns_governance() -> Vec<u8> {
-    get_wasm("./src/state_machine/sns-canisters/sns-governance-canister.wasm.gz")
+    get_wasm("./src/state_machine/sns_canisters/sns-governance-canister.wasm.gz")
 }
 
 fn sns_root() -> Vec<u8> {
-    get_wasm("./src/state_machine/sns-canisters/sns-root-canister.wasm.gz")
+    get_wasm("./src/state_machine/sns_canisters/sns-root-canister.wasm.gz")
 }
 
 fn sns_swap() -> Vec<u8> {
-    get_wasm("./src/state_machine/sns-canisters/sns-swap-canister.wasm.gz")
+    get_wasm("./src/state_machine/sns_canisters/sns-swap-canister.wasm.gz")
 }
 
 fn cargo_build() -> Result<(), std::io::Error> {
@@ -85,13 +89,13 @@ fn cargo_build() -> Result<(), std::io::Error> {
 
 #[derive(Debug)]
 pub struct BoomerangSetup {
-    env: StateMachine,
+    pub env: StateMachine,
     pub minter: PrincipalId,
+    pub boomerang_id: CanisterId,
     pub water_neuron_id: CanisterId,
     pub wtn_ledger_id: CanisterId,
     pub icp_ledger_id: CanisterId,
     pub nicp_ledger_id: CanisterId,
-    pub governance_id: CanisterId,
 }
 
 #[derive(Deserialize, CandidType)]
@@ -142,7 +146,6 @@ impl BoomerangSetup {
             .unwrap();
 
         let nicp_ledger_id = env.create_canister(None);
-        let wtn_ledger_id = env.create_canister(None);
 
         let water_neuron_id = env.create_canister(None);
         let water_neuron_principal = water_neuron_id.get().0;
@@ -214,6 +217,18 @@ impl BoomerangSetup {
             .unwrap(),
         )
         .unwrap();
+
+        let boomerang_id = env.install_canister(boomerang_wasm(), Encode!(&()).unwrap(), None).unwrap();
+
+        Self {
+            env,
+            minter,
+            boomerang_id,
+            water_neuron_id,
+            wtn_ledger_id: sns.ledger,
+            icp_ledger_id,
+            nicp_ledger_id,
+        }
     }
 }
 
