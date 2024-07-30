@@ -60,7 +60,7 @@ fn check_e2e() {
 
         boomerang.advance_time_and_tick(60*60);
 
-    let res = boomerang.notify_nicp_deposit(caller.0);
+    assert!(boomerang.notify_nicp_deposit(caller.0).is_ok());
 
     assert!(boomerang.try_retrieve_icp(caller.0).is_err());
 
