@@ -1,4 +1,4 @@
-use crate::{E8S, TRANSFER_FEE};
+use crate::{BoomerangError, DepositSuccess, WithdrawalSuccess, E8S, TRANSFER_FEE};
 use candid::{CandidType, Decode, Deserialize, Encode, Nat, Principal};
 use ic_icrc1_ledger::{
     ArchiveOptions, InitArgs as LedgerInitArgs, InitArgsBuilder as LedgerInitArgsBuilder,
@@ -18,8 +18,8 @@ use ic_state_machine_tests::{
     CanisterId, CanisterInstallMode, PrincipalId, StateMachine, WasmResult,
 };
 use icp_ledger::{
-    AccountIdentifier, LedgerCanisterInitPayload, Memo, Subaccount, Tokens, TransferArgs,
-    TransferError,
+    AccountIdentifier, LedgerCanisterInitPayload, Memo, Subaccount, Tokens,
+    TransferArgs, TransferError,
 };
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError as IcrcTransferError};
@@ -35,7 +35,6 @@ const ONE_DAY_SECONDS: u64 = 24 * 60 * 60;
 const ONE_YEAR_SECONDS: u64 = (4 * 365 + 1) * ONE_DAY_SECONDS / 4;
 const ONE_MONTH_SECONDS: u64 = ONE_YEAR_SECONDS / 12;
 
-const DEFAULT_LEDGER_FEE: u64 = 10_000;
 const NEURON_LEDGER_FEE: u64 = 1_000_000;
 
 lazy_static! {
@@ -50,7 +49,7 @@ fn get_wasm(dir: &str) -> Vec<u8> {
 }
 
 fn boomerang_wasm() -> Vec<u8> {
-    get_wasm("./target/wasm32-unknown-unknown/release/boomerang.wasm")
+    get_wasm("./target/wasm32-unknown-unknown/debug/boomerang.wasm")
 }
 
 fn icp_ledger_wasm() -> Vec<u8> {
@@ -62,7 +61,7 @@ fn governance_wasm() -> Vec<u8> {
 }
 
 fn water_neuron_wasm() -> Vec<u8> {
-    get_wasm("./wasm/water_neuron.wasm")
+    get_wasm("./wasm/waterneuron.wasm.gz")
 }
 
 fn ledger_wasm() -> Vec<u8> {
@@ -142,7 +141,7 @@ impl BoomerangSetup {
         );
         initial_balances.insert(
             AccountIdentifier::new(caller.into(), None),
-            Tokens::from_e8s(1_000_000 * E8S),
+            Tokens::from_e8s(1_000 * E8S + TRANSFER_FEE),
         );
 
         let nicp_ledger_id = env.create_canister(None);
@@ -164,7 +163,7 @@ impl BoomerangSetup {
             icp_ledger_wasm(),
             Encode!(&LedgerCanisterInitPayload::builder()
                 .initial_values(initial_balances)
-                .transfer_fee(Tokens::from_e8s(10_000))
+                .transfer_fee(Tokens::from_e8s(TRANSFER_FEE))
                 .minting_account(GOVERNANCE_CANISTER_ID.get().into())
                 .token_symbol_and_name("ICP", "Internet Computer")
                 .feature_flags(icp_ledger::FeatureFlags { icrc2: true })
@@ -236,7 +235,7 @@ impl BoomerangSetup {
             Encode!(&LedgerArgument::Init(
                 LedgerInitArgsBuilder::with_symbol_and_name("nICP", "nICP")
                     .with_minting_account(water_neuron_id.get().0)
-                    .with_transfer_fee(DEFAULT_LEDGER_FEE)
+                    .with_transfer_fee(TRANSFER_FEE)
                     .with_decimals(8)
                     .with_feature_flags(ic_icrc1_ledger::FeatureFlags { icrc2: true })
                     .build(),
@@ -278,8 +277,8 @@ impl BoomerangSetup {
                         Encode!(
                             &(TransferArgs {
                                 memo: Memo(0),
-                                amount: Tokens::from_e8s(transfer_amount * E8S),
-                                fee: Tokens::from_e8s(TRANSFER_FEE * E8S),
+                                amount: Tokens::from_e8s(transfer_amount),
+                                fee: Tokens::from_e8s(TRANSFER_FEE),
                                 from_subaccount,
                                 created_at_time: None,
                                 to: target.to_address(),
@@ -287,11 +286,11 @@ impl BoomerangSetup {
                         )
                         .unwrap()
                     )
-                    .expect("failed icrc1_transfer in icp_transfer")
+                    .expect("failed canister call in icp_transfer")
             ),
             Result<u64, TransferError>
         )
-        .expect("failed to decode icrc1_transfer in icp_transfer")
+        .expect("failed to decode result in icp_transfer")
     }
 
     pub fn nicp_transfer(
@@ -299,7 +298,7 @@ impl BoomerangSetup {
         caller: Principal,
         from_subaccount: Option<[u8; 32]>,
         transfer_amount: u64,
-        target: Principal,
+        target: Account,
     ) -> Result<Nat, IcrcTransferError> {
         Decode!(
             &assert_reply(
@@ -312,19 +311,54 @@ impl BoomerangSetup {
                             &(TransferArg {
                                 memo: None,
                                 amount: transfer_amount.into(),
-                                fee: Some(TRANSFER_FEE.into()),
+                                fee: None,
                                 from_subaccount,
                                 created_at_time: None,
-                                to: target.into(),
+                                to: target,
                             })
                         )
                         .unwrap()
                     )
-                    .expect("failed icrc1_transfer in nicp_transfer")
+                    .expect("failed canister call in nicp_transfer")
             ),
             Result<Nat, IcrcTransferError>
         )
-        .expect("failed to decode icrc1_transfer in nicp_transfer")
+        .expect("failed to decode result in nicp_transfer")
+    }
+
+    pub fn notify_icp_deposit(&self, caller: Principal) -> Result<DepositSuccess, BoomerangError> {
+        Decode!(
+            &assert_reply(
+                    self.env.execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "notify_icp_deposit",
+                        Encode!(&(caller)).unwrap()
+                    )
+                    .expect("failed canister call in notify_icp_deposit")
+            ),
+            Result<DepositSuccess, BoomerangError>
+        )
+        .expect("failed to decode result in notify_icp_deposit")
+    }
+
+    pub fn notify_nicp_deposit(
+        &self,
+        caller: Principal,
+    ) -> Result<WithdrawalSuccess, BoomerangError> {
+        Decode!(
+            &assert_reply(
+                    self.env.execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "notify_nicp_deposit",
+                        Encode!(&(caller)).unwrap()
+                    )
+                    .expect("failed canister call in notify_nicp_deposit")
+            ),
+            Result<WithdrawalSuccess, BoomerangError>
+        )
+        .expect("failed to decode result in notify_nicp_deposit")
     }
 
     fn get_staking_account_id(&self, caller: Principal) -> AccountIdentifier {
@@ -337,11 +371,108 @@ impl BoomerangSetup {
                         "get_staking_account_id",
                         Encode!(&(caller)).unwrap()
                     )
-                    .expect("failed icrc1_transfer in nicp_transfer")
+                    .expect("failed canister call in get_staking_account_id")
             ),
             AccountIdentifier
         )
-        .expect("failed to decode icrc1_transfer in nicp_transfer")
+        .expect("failed to decode result in get_staking_account_id")
+    }
+
+    fn get_unstaking_account(&self, caller: Principal) -> Account {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "get_unstaking_account",
+                        Encode!(&(caller)).unwrap()
+                    )
+                    .expect("failed canister call in get_unstaking_account")
+            ),
+            Account
+        )
+        .expect("failed to decode result in get_unstaking_account")
+    }
+
+    pub fn icp_balance(&self, caller: Principal) -> Nat {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.icp_ledger_id,
+                        "icrc1_balance_of",
+                        Encode!(
+                            &(Account {
+                                owner: caller,
+                                subaccount: None
+                            })
+                        )
+                        .unwrap()
+                    )
+                    .expect("failed canister call in icp_balance")
+            ),
+            Nat
+        )
+        .expect("failed to decode result in icp_balance")
+    }
+
+    pub fn nicp_balance(&self, caller: Principal) -> Nat {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.nicp_ledger_id,
+                        "icrc1_balance_of",
+                        Encode!(
+                            &(Account {
+                                owner: caller,
+                                subaccount: None
+                            })
+                        )
+                        .unwrap()
+                    )
+                    .expect("failed canister call in nicp_balance")
+            ),
+            Nat
+        )
+        .expect("failed to decode result in nicp_balance")
+    }
+
+    pub fn retrieve_nicp(&self, caller: Principal) -> Result<Nat, BoomerangError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "retrieve_nicp",
+                        Encode!(&(caller)).unwrap()
+                    )
+                    .expect("failed canister call in retrieve_nicp")
+            ),
+            Result<Nat, BoomerangError>
+        )
+        .expect("failed to decode result in retrieve_nicp")
+    }
+
+    pub fn try_retrieve_icp(&self, caller: Principal) -> Result<Nat, BoomerangError> {
+        Decode!(
+            &assert_reply(
+                self.env
+                    .execute_ingress_as(
+                        caller.into(),
+                        self.boomerang_id,
+                        "try_retrieve_icp",
+                        Encode!(&(caller)).unwrap()
+                    )
+                    .expect("failed canister call in try_retrieve_icp")
+            ),
+            Result<Nat, BoomerangError>
+        )
+        .expect("failed to decode result in try_retrieve_icp")
     }
 }
 

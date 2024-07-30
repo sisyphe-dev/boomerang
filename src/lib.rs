@@ -16,24 +16,24 @@ pub mod state_machine;
 pub const ICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 2, 1, 1]);
 
 // "buwm7-7yaaa-aaaar-qagva-cai"
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(feature = "test-env"))]
 pub const NICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48, 1, 170, 1, 1]);
 // "rwlgt-iiaaa-aaaaa-aaaaa-cai"
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "test-env")]
 pub const NICP_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 1, 1]);
 
 // "jcmow-hyaaa-aaaaq-aadlq-cai"
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(feature = "test-env"))]
 pub const WTN_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 0, 0, 215, 1, 1]);
 // "renrk-eyaaa-aaaaa-aaada-cai"
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "test-env")]
 pub const WTN_LEDGER_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 6, 1, 1]);
 
 // "tsbvt-pyaaa-aaaar-qafva-cai"
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(feature = "test-env"))]
 pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 2, 48, 1, 106, 1, 1]);
 // "r7inp-6aaaa-aaaaa-aaabq-cai"
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "test-env")]
 pub const WATER_NEURON_ID: Principal = Principal::from_slice(&[0, 0, 0, 0, 0, 0, 0, 3, 1, 1]);
 
 pub const E8S: u64 = 100_000_000;

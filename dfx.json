@@ -10,7 +10,7 @@
     "water_neuron": {
 			"candid": "candid/water_neuron.did",
 			"type": "custom",
-			"wasm": "wasm/water_neuron.wasm"
+			"wasm": "wasm/waterneuron.wasm.gz"
 		},
 		"nicp_ledger": {
 			"candid": "candid/ledger.did",
