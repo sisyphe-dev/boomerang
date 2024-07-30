@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 
 [dependencies]
-candid = "0.10"
+candid = "0.10.9"
 ic-cdk = "0.13"
 icp-ledger = { git = "https://github.com/dfinity/ic/", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
 ic-base-types = { git = "https://github.com/dfinity/ic/", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
@@ -30,3 +30,20 @@ ic-canister-log = "0.2.0"
 
 [dev-dependencies]
 candid_parser = "0.1.4"
+lazy_static = "1.4.0"
+num-traits = "0.2.18"
+ic-state-machine-tests = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-management-canister-types = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-sns-governance = { git = "https://github.com/dfinity/ic/", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-sns-root = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-sns-swap = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-sns-init = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-nns-constants = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-icrc1-ledger = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+ic-nns-governance = { git = "https://github.com/dfinity/ic.git", rev = "7eace38b7580dc35af53b9180ea40480af4977dc" }
+prost = "0.12.6"
+
+
+[features]
+test-env = []
+deploy-env = []
