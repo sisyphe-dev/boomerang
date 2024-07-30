@@ -26,9 +26,9 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
 
     let balance_e8s: u64 = match client.balance_of(boomerang_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
-        Err((code, msg)) => {
+        Err((code, message)) => {
             return Err(BoomerangError::BalanceOfError(format!(
-                "code: {code} - message: {msg}"
+                "code: {code} - message: {message}"
             )));
         }
     };
@@ -59,10 +59,8 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
                 return Err(BoomerangError::ApproveError(error));
             }
         },
-        Err((code, msg)) => {
-            return Err(BoomerangError::CustomError(format!(
-                "code: {code} - msg: {msg}"
-            )));
+        Err((code, message)) => {
+            return Err(BoomerangError::GenericError { code, message });
         }
     }
 
@@ -111,9 +109,9 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
 
     let icp_balance_e8s: u64 = match icp_client.balance_of(boomerang_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
-        Err((code, msg)) => {
+        Err((code, message)) => {
             return Err(BoomerangError::BalanceOfError(format!(
-                "code: {code} - msg: {msg}"
+                "code: {code} - message: {message}"
             )));
         }
     };
@@ -146,8 +144,6 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             }
             Err(e) => Err(BoomerangError::TransferError(e)),
         },
-        Err((code, msg)) => Err(BoomerangError::CustomError(format!(
-            "code: {code} - msg: {msg}"
-        ))),
+        Err((code, message)) => Err(BoomerangError::GenericError { code, message }),
     }
 }

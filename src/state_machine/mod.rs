@@ -18,8 +18,8 @@ use ic_state_machine_tests::{
     CanisterId, CanisterInstallMode, PrincipalId, StateMachine, WasmResult,
 };
 use icp_ledger::{
-    AccountIdentifier, LedgerCanisterInitPayload, Memo, Subaccount, Tokens,
-    TransferArgs, TransferError,
+    AccountIdentifier, LedgerCanisterInitPayload, Memo, Subaccount, Tokens, TransferArgs,
+    TransferError,
 };
 use icrc_ledger_types::icrc1::account::Account;
 use icrc_ledger_types::icrc1::transfer::{TransferArg, TransferError as IcrcTransferError};
@@ -266,7 +266,6 @@ impl BoomerangSetup {
         transfer_amount: u64,
         target: AccountIdentifier,
     ) -> Result<u64, TransferError> {
-        println!("Address targeted {:?}", target.to_address());
         Decode!(
             &assert_reply(
                 self.env
@@ -291,6 +290,15 @@ impl BoomerangSetup {
             Result<u64, TransferError>
         )
         .expect("failed to decode result in icp_transfer")
+    }
+
+    pub fn advance_time_and_tick(&self, seconds: u64) {
+        self.env
+            .advance_time(std::time::Duration::from_secs(seconds));
+        const MAX_TICKS: u8 = 10;
+        for _ in 0..MAX_TICKS {
+            self.env.tick();
+        }
     }
 
     pub fn nicp_transfer(
