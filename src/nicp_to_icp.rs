@@ -11,10 +11,11 @@ use icrc_ledger_types::icrc1::transfer::TransferArg;
 use icrc_ledger_types::icrc2::approve::ApproveArgs;
 
 pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess, BoomerangError> {
+    let boomerang_id = self_canister_id();
     let subaccount = derive_subaccount_unstaking(target);
 
     let boomerang_account = Account {
-        owner: self_canister_id(),
+        owner: boomerang_id,
         subaccount: Some(subaccount),
     };
 
@@ -25,9 +26,9 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
 
     let balance_e8s: u64 = match client.balance_of(boomerang_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
-        Err((code, msg)) => {
+        Err((code, message)) => {
             return Err(BoomerangError::BalanceOfError(format!(
-                "code: {code} - message: {msg}"
+                "code: {code} - message: {message}"
             )));
         }
     };
@@ -49,14 +50,19 @@ pub async fn notify_nicp_deposit(target: Principal) -> Result<WithdrawalSuccess,
         created_at_time: None,
     };
 
-    match client.approve(approve_args).await.unwrap() {
-        Ok(block_index) => {
-            log! {INFO, "Approved for {target} occured at block index: {}", block_index};
+    match client.approve(approve_args).await {
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log! {INFO, "Approved for {target} occured at block index: {}", block_index};
+            }
+            Err(error) => {
+                return Err(BoomerangError::ApproveError(error));
+            }
+        },
+        Err((code, message)) => {
+            return Err(BoomerangError::GenericError { code, message });
         }
-        Err(error) => {
-            return Err(BoomerangError::ApproveError(error));
-        }
-    };
+    }
 
     let transfer_amount_e8s = balance_e8s
         .checked_sub(2 * TRANSFER_FEE)
@@ -96,16 +102,16 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
     let boomerang_id = self_canister_id();
     let subaccount = derive_subaccount_unstaking(target);
 
-    let target_account = Account {
+    let boomerang_account = Account {
         owner: boomerang_id,
         subaccount: Some(subaccount),
     };
 
-    let icp_balance_e8s: u64 = match icp_client.balance_of(target_account).await {
+    let icp_balance_e8s: u64 = match icp_client.balance_of(boomerang_account).await {
         Ok(balance) => balance.0.try_into().unwrap(),
-        Err((code, msg)) => {
+        Err((code, message)) => {
             return Err(BoomerangError::BalanceOfError(format!(
-                "code: {code} - msg: {msg}"
+                "code: {code} - message: {message}"
             )));
         }
     };
@@ -121,21 +127,23 @@ pub async fn try_retrieve_icp(target: Principal) -> Result<Nat, BoomerangError> 
             memo: None,
             amount: to_transfer_amount.into(),
             fee: Some(TRANSFER_FEE.into()),
-            from_subaccount: Some(subaccount),
+            from_subaccount: boomerang_account.subaccount,
             created_at_time: None,
             to: target.into(),
         })
         .await
-        .unwrap()
     {
-        Ok(block_index) => {
-            log!(
-                INFO,
-                "Transfered nICP for {target} at block index: {}",
-                block_index
-            );
-            Ok(block_index)
-        }
-        Err(e) => Err(BoomerangError::TransferError(e)),
+        Ok(result) => match result {
+            Ok(block_index) => {
+                log!(
+                    INFO,
+                    "Transfered ICP for {target} at block index: {}",
+                    block_index
+                );
+                Ok(block_index)
+            }
+            Err(e) => Err(BoomerangError::TransferError(e)),
+        },
+        Err((code, message)) => Err(BoomerangError::GenericError { code, message }),
     }
 }
